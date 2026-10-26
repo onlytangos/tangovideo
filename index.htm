@@ -138,6 +138,26 @@ td .sub{display:block;color:var(--dim);font-size:13px;margin-top:2px}
 .player{min-height:0;display:flex;flex-direction:column}
 .frame{width:100%;aspect-ratio:16/9;max-height:100%;background:#000;border:1px solid var(--line);border-radius:10px;overflow:hidden;flex:none;display:grid;place-items:center}
 .frame iframe{width:100%;height:100%;border:0;display:block}
+/* el player de YouTube, más alto que el marco: el vídeo queda centrado y entero, y lo que YouTube pinta
+   arriba (título, gris) y abajo (más vídeos, logo) cae fuera del marco, que lo recorta */
+.frame iframe{position:absolute;left:0;top:calc(-1 * var(--sobra));height:calc(100% + 2 * var(--sobra))}
+.frame{--sobra:140px}
+/* la tapa sobre el player (el ratón no llega a YouTube) y los controles de debajo */
+.frame{position:relative}
+.frame .tapa{position:absolute;inset:0;cursor:pointer;display:grid;place-items:center}
+/* mientras no suena (cargando, en pausa, al acabar), la foto del vídeo tapa lo que YouTube enseña */
+.frame .tapa.cubre{background:#000 var(--poster) center/cover no-repeat}
+.frame .tapa .bplay{display:none;width:64px;height:64px;border-radius:50%;background:rgba(22,18,15,.75);color:#fff;place-items:center}
+.frame .tapa.cubre .bplay{display:grid}
+.frame .tapa .bplay svg{width:28px;height:28px}
+.mando{display:flex;align-items:center;gap:10px;padding:8px 2px 0;flex:none}
+.mando[hidden]{display:none}
+.mando .mb{display:grid;place-items:center;width:36px;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;flex:none}
+.mando .mb:hover{border-color:var(--gv);color:var(--gv)}
+.mando .pos{flex:1;min-width:0;accent-color:var(--gv);cursor:pointer}
+.mando .tiempo{font-size:13px;color:var(--mute);font-variant-numeric:tabular-nums;white-space:nowrap}
+.player:fullscreen{background:#000;padding:12px;justify-content:center}
+.player:fullscreen .frame{flex:1;max-height:none;aspect-ratio:auto;border:0}
 .poster{position:relative;width:100%;height:100%;display:grid;place-items:center;text-decoration:none;color:#fff}
 .poster img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.7}
 .poster .play{position:relative;width:64px;height:64px;border-radius:50%;background:#D93A3A;display:grid;place-items:center}
@@ -410,14 +430,15 @@ function montaListas(){
       esc(L.titulo) + '<span class="count">' + L.videos.length + '</span></a>';
     sec += '<section class="champs" id="s-' + esc(L.id) + '" data-title="' + esc(L.titulo) + '" hidden>' +
       (L.descripcion ? '<p class="lead">' + esc(L.descripcion) + '</p>' : '') +
-      '<div class="split"><div class="player"><div class="frame"></div></div><div class="col"><div class="ctl">' +
+      '<div class="split"><div class="player"><div class="frame"></div>' + MANDO + '</div><div class="col"><div class="ctl">' +
       '<button class="allbtn" type="button" data-k="' + esc(L.id) + '" aria-pressed="true" title="Play the listed videos one after another">' + SVG_YT + ' Play all</button>' +
       (L.videos.length > 20 ? '<input class="filter" type="search" placeholder="Filter ' + L.videos.length + ' videos…" aria-label="Filter videos">' : '') + '</div>' +
       '<div class="cards list"></div></div></div></section>';
   }
   // Sources: de dónde salen los datos, en una pestaña nueva
   nav += '<div class="grp">Sources</div>' +
-    '<a href="https://www.todotango.com/" target="_blank" rel="noopener">' + SVG_WEB.replace(/14/g, '16') + 'todotango</a>';
+    '<a href="https://www.todotango.com/" target="_blank" rel="noopener">' + SVG_WEB.replace(/14/g, '16') + 'todotango</a>' +
+    '<a href="https://www.youtube.com/@onlytangos" target="_blank" rel="noopener">' + SVG_YT.replace(/14/g, '16') + 'Only Tango Dancers - OTD</a>';   // el canal de las listas
   $('#nav').insertAdjacentHTML('beforeend', nav);
   $('#listas').innerHTML = sec;
 }
@@ -438,11 +459,18 @@ function play(k, i, auto){
   sec.querySelector('.frame').innerHTML = (v.vid && LOCAL)
     ? '<a class="poster" href="' + esc(ytWatch(v)) + '" target="_blank" rel="noopener" title="Watch on YouTube"><img src="https://i.ytimg.com/vi/' + esc(v.vid) + '/hqdefault.jpg" alt=""><span class="play">' + SVG_YT.replace(/14/g, '30') + '</span><span class="hint">Opened as a local file: YouTube does not allow playing here. Click to watch on YouTube.</span></a>'
     : v.vid
-    ? '<iframe src="https://www.youtube-nocookie.com/embed/' + esc(v.vid) + '?rel=0&enablejsapi=1&origin=' + encodeURIComponent(location.origin) + (auto ? '&autoplay=1' : '') + '" title="' + esc(v.titulo) + '" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>'
+    /* sin los controles de YouTube (controls=0...) y con una tapa encima: el ratón no llega al player,
+       que así no se oscurece ni enseña título ni controles; los controles van debajo (mando) */
+    ? '<iframe src="https://www.youtube-nocookie.com/embed/' + esc(v.vid) + '?rel=0&controls=0&disablekb=1&fs=0&iv_load_policy=3&playsinline=1&enablejsapi=1&origin=' + encodeURIComponent(location.origin) + (auto ? '&autoplay=1' : '') + '" title="' + esc(v.titulo) + '" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe><div class="tapa cubre" data-k="' + esc(k) + '" title="Play / pause" style="--poster:url(https://i.ytimg.com/vi/' + esc(v.vid) + '/hqdefault.jpg)"><span class="bplay">' + ICO.play + '</span></div>'
     : '<a class="pill" href="' + esc(ytWatch(v)) + '" target="_blank" rel="noopener">' + SVG_YT + ' Search on YouTube</a>';
   sec.querySelectorAll('.list .card').forEach((el, j) => el.classList.toggle('on', j === i));
   LMAP[k].actual = i;
+  LMAP[k].info = {};
+  LMAP[k].limpio = false; LMAP[k].desde = 0;   // la foto tapa el vídeo nuevo hasta que suena (pintaMando)
   const f = sec.querySelector('.frame iframe');
+  const m = sec.querySelector('.mando');
+  if (m) m.hidden = !f;
+  pintaMando(k);
   /* el iframe avisa de sus cambios de estado (fin del vídeo) si se le pide con "listening" */
   if (f) f.addEventListener('load', () => [0, 500, 1500, 3000].forEach(t => setTimeout(() =>
     f.contentWindow && f.contentWindow.postMessage(JSON.stringify({event: 'listening', id: k, channel: 'widget'}), '*'), t)));
@@ -456,15 +484,68 @@ function siguiente(k){
   play(k, i ?? vis[0], true);
   cards[i ?? vis[0]].scrollIntoView({block: 'nearest', behavior: 'smooth'});
 }
+/* los controles de debajo del player (mando): play/pausa, posición, tiempo, sonido y pantalla completa;
+   mandan órdenes al iframe (postMessage "command") y se pintan con lo que él cuenta (infoDelivery) */
+const SVG_C = p => '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' + p + '</svg>';
+const ICO = {
+  play: SVG_C('<path d="M7 4.5v15l13-7.5z"/>'),
+  pause: SVG_C('<rect x="6" y="4.5" width="4.2" height="15" rx="1"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1"/>'),
+  vol: SVG_C('<path d="M4 9h4l5-4.5v15L8 15H4z"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'),
+  mute: SVG_C('<path d="M4 9h4l5-4.5v15L8 15H4z"/><path d="M16.5 9.5l5 5m0-5l-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'),
+  full: SVG_C('<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>')
+};
+const MANDO = '<div class="mando" hidden><button type="button" class="mb" data-c="play" title="Play / pause">' + ICO.play + '</button>' +
+  '<input class="pos" type="range" min="0" max="0" step="1" value="0" aria-label="Position">' +
+  '<span class="tiempo">0:00 / 0:00</span>' +
+  '<button type="button" class="mb" data-c="mute" title="Sound on / off">' + ICO.vol + '</button>' +
+  '<button type="button" class="mb" data-c="full" title="Full screen">' + ICO.full + '</button></div>';
+const mmss = s => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+function orden(k, func, args){
+  const f = document.querySelector('#s-' + k + ' .frame iframe');
+  if (f && f.contentWindow) f.contentWindow.postMessage(JSON.stringify({event: 'command', func, args: args || []}), '*');
+}
+const TAPA_MS = 4000;   // lo que la foto sigue tapando el vídeo después de empezar a sonar (YouTube quita su título a los ~3 s)
+function pintaMando(k){
+  const m = document.querySelector('#s-' + k + ' .mando'), d = LMAP[k].info || {};
+  if (!m) return;
+  const suena = d.playerState === 1 || d.playerState === 3;
+  m.querySelector('[data-c="play"]').innerHTML = suena ? ICO.pause : ICO.play;
+  /* al cargar, la foto tapa hasta que el vídeo lleva TAPA_MS sonando (antes YouTube enseña título y
+     botones); desde entonces, el vídeo se ve siempre, también en pausa (hasta el siguiente vídeo) */
+  if (!LMAP[k].limpio) {
+    LMAP[k].desde = d.playerState === 1 ? LMAP[k].desde || Date.now() : 0;
+    LMAP[k].limpio = !!LMAP[k].desde && Date.now() - LMAP[k].desde >= TAPA_MS;
+  }
+  const tapa = document.querySelector('#s-' + k + ' .tapa');
+  if (tapa) tapa.classList.toggle('cubre', !LMAP[k].limpio);
+  m.querySelector('[data-c="mute"]').innerHTML = d.muted ? ICO.mute : ICO.vol;
+  const pos = m.querySelector('.pos');
+  pos.max = Math.floor(d.duration || 0);
+  if (!LMAP[k].arrastrando) pos.value = Math.floor(d.currentTime || 0);
+  m.querySelector('.tiempo').textContent = mmss(LMAP[k].arrastrando ? pos.value : d.currentTime) + ' / ' + mmss(d.duration);
+}
+function pulsa(k, c){
+  const d = LMAP[k].info || {};
+  if (c === 'play') orden(k, d.playerState === 1 || d.playerState === 3 ? 'pauseVideo' : 'playVideo');
+  if (c === 'mute') { orden(k, d.muted ? 'unMute' : 'mute'); d.muted = !d.muted; pintaMando(k); }
+  if (c === 'full') {
+    const p = document.querySelector('#s-' + k + ' .player');
+    document.fullscreenElement ? document.exitFullscreen() : p.requestFullscreen && p.requestFullscreen();
+  }
+}
 window.addEventListener('message', e => {
   if (!/^https:\/\/www\.youtube(-nocookie)?\.com$/.test(e.origin)) return;
   let d; try { d = JSON.parse(e.data); } catch { return; }
+  const f = [...document.querySelectorAll('section:not([hidden]) .frame iframe')].find(f => f.contentWindow === e.source);
+  if (!f) return;
+  const k = f.closest('section').id.slice(2);
+  if (!LMAP[k]) return;
+  if (d.event === 'infoDelivery' && d.info) { Object.assign(LMAP[k].info = LMAP[k].info || {}, d.info); pintaMando(k); }
+  if (d.event === 'onStateChange') { (LMAP[k].info = LMAP[k].info || {}).playerState = d.info; pintaMando(k); }
   const fin = (d.event === 'onStateChange' && d.info === 0) || (d.event === 'infoDelivery' && d.info && d.info.playerState === 0);
   if (!fin) return;
-  for (const f of document.querySelectorAll('section:not([hidden]) .frame iframe')) {
-    if (f.contentWindow !== e.source) continue;
-    const k = f.closest('section').id.slice(2);
-    if (LMAP[k] && LMAP[k].continuo && !LMAP[k].avanzando) {
+  {
+    if (LMAP[k].continuo && !LMAP[k].avanzando) {
       LMAP[k].avanzando = true;   /* el fin puede llegar por los dos eventos: un solo salto */
       setTimeout(() => { LMAP[k].avanzando = false; }, 1500);
       siguiente(k);
@@ -478,6 +559,8 @@ function stopHidden(){
   });
 }
 document.addEventListener('click', e => {
+  const t = e.target.closest('.tapa, .mando .mb');
+  if (t) pulsa(t.closest('section').id.slice(2), t.dataset.c || 'play');
   const b = e.target.closest('button.ph');
   if (b) play(b.dataset.k, +b.dataset.i, true);
   const a = e.target.closest('button.allbtn');
@@ -487,6 +570,21 @@ document.addEventListener('click', e => {
     a.setAttribute('aria-pressed', L.continuo);
     if (L.continuo) play(L.id, L.actual ?? 0, true);
   }
+});
+/* la barra de posición: mientras se arrastra, solo el tiempo; al soltar, el salto */
+document.addEventListener('input', e => {
+  if (!e.target.classList.contains('pos')) return;
+  const k = e.target.closest('section').id.slice(2);
+  LMAP[k].arrastrando = true;
+  pintaMando(k);
+});
+document.addEventListener('change', e => {
+  if (!e.target.classList.contains('pos')) return;
+  const k = e.target.closest('section').id.slice(2);
+  LMAP[k].arrastrando = false;
+  orden(k, 'seekTo', [+e.target.value, true]);
+  (LMAP[k].info = LMAP[k].info || {}).currentTime = +e.target.value;
+  pintaMando(k);
 });
 document.addEventListener('input', e => {
   if (!e.target.classList.contains('filter')) return;
